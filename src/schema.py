@@ -1,18 +1,9 @@
 """
 Trade confirmation extraction schema (Pydantic v2).
 
-Type layer only: field types + constraints + enums. Cross-field business
-rules (unit coherence, notional = price x quantity, date ordering) attach as
-@model_validators in the NEXT block — their signatures are listed at the bottom.
-
-Design notes:
-- Decimal everywhere for money/quantity/price. Never float in a trade doc.
-- Price is decomposed into (value, currency, per_unit) and Quantity into
-  (value, unit). Keeping price.per_unit and quantity.unit as separate typed
-  fields is what makes the Day 2 "price unit vs quantity unit" conflation
-  *checkable* next block, instead of silently valid.
-- extra="forbid": a hallucinated/extra field becomes a validation error that
-  feeds the repair loop, rather than passing through unnoticed.
+Type layer + cross-field business rules. The business rules are what turn
+plausible-but-wrong LLM extractions (right shape, wrong values) into caught
+validation errors that feed the repair loop.
 """
 
 from __future__ import annotations
@@ -22,13 +13,23 @@ from decimal import Decimal
 from enum import Enum
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 
 # --- constrained scalar types ------------------------------------------------
 
 CurrencyCode = Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")]  # ISO 4217
 LEICode = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9]{20}$")]   # ISO 17442
+
+# notional tolerance: 0.5% relative, floored at one cent. Wide enough to absorb
+# rounding in the source doc, tight enough to catch a unit/order-of-magnitude error.
+NOTIONAL_REL_TOL = Decimal("0.005")
 
 
 # --- enums -------------------------------------------------------------------
@@ -98,53 +99,54 @@ class TradeConfirmation(BaseModel):
     notional: Decimal = Field(..., gt=0)
     notional_currency: CurrencyCode
 
-    # optional / physical-delivery fields
     delivery_location: Optional[str] = None
     delivery_period_start: Optional[date] = None
     delivery_period_end: Optional[date] = None
 
+    @model_validator(mode="after")
+    def _business_rules(self) -> "TradeConfirmation":
+        """Collect every violation, then raise once so the repair loop can fix
+        all of them in a single round trip instead of one call per rule."""
+        issues: list[str] = []
 
-# --- business-rule validators: NEXT BLOCK (Wed 2:00-2:45), not implemented yet
-# Attach as @model_validator(mode="after") on TradeConfirmation:
-#   1. unit coherence     -> price.per_unit == quantity.unit
-#   2. notional check     -> abs(notional - price.value * quantity.value) <= tol
-#   3. currency coherence -> price.currency == notional_currency
-#   4. date ordering      -> trade_date <= settlement_date
-#   5. delivery window    -> start <= end when both present; required if PHYSICAL
+        # 1. unit coherence — the Day 2 bug. Price must be quoted per the same
+        #    unit the quantity is measured in.
+        if self.price.per_unit != self.quantity.unit:
+            issues.append(
+                f"unit mismatch: price quoted per {self.price.per_unit.value}, "
+                f"but quantity is measured in {self.quantity.unit.value}"
+            )
 
+        # 2. currency coherence
+        if self.price.currency != self.notional_currency:
+            issues.append(
+                f"currency mismatch: price in {self.price.currency}, "
+                f"notional in {self.notional_currency}"
+            )
 
-if __name__ == "__main__":
-    # smoke test: one valid doc, one that trips several type constraints
-    good = TradeConfirmation(
-        confirmation_id="TC-001",
-        trade_type="PHYSICAL",
-        side="BUY",
-        commodity="WTI Crude Oil",
-        trade_date="2026-07-20",
-        settlement_date="2026-07-24",
-        buyer={"name": "Acme Energy LLC"},
-        seller={"name": "Globex Trading"},
-        quantity={"value": "1000", "unit": "BBL"},
-        price={"value": "82.50", "currency": "USD", "per_unit": "BBL"},
-        notional="82500.00",
-        notional_currency="USD",
-    )
-    print("VALID:\n", good.model_dump_json(indent=2))
+        # 3. notional ~= price * quantity (tolerant of rounding)
+        computed = self.price.value * self.quantity.value
+        tol = max(Decimal("0.01"), computed * NOTIONAL_REL_TOL)
+        if abs(self.notional - computed) > tol:
+            issues.append(
+                f"notional {self.notional} != price x quantity ({computed}); "
+                f"difference exceeds tolerance {tol}"
+            )
 
-    try:
-        TradeConfirmation(
-            confirmation_id="",                 # min_length
-            trade_type="SPOT",                  # not a TradeType
-            side="BUY",
-            commodity="WTI",
-            trade_date="2026-07-20",
-            settlement_date="2026-07-24",
-            buyer={"name": "A"},
-            seller={"name": "B"},
-            quantity={"value": "-5", "unit": "BBL"},                  # gt=0
-            price={"value": "82.5", "currency": "usd", "per_unit": "BBL"},  # pattern
-            notional="82500",
-            notional_currency="USD",
-        )
-    except Exception as e:
-        print("\nREJECTED AS EXPECTED:\n", e)
+        # 4. date ordering
+        if self.trade_date > self.settlement_date:
+            issues.append(
+                f"trade_date {self.trade_date} is after "
+                f"settlement_date {self.settlement_date}"
+            )
+
+        # 5. delivery window + physical trades must state a delivery location
+        s, e = self.delivery_period_start, self.delivery_period_end
+        if s and e and s > e:
+            issues.append(f"delivery window start {s} is after end {e}")
+        if self.trade_type is TradeType.PHYSICAL and not self.delivery_location:
+            issues.append("physical trade requires a delivery_location")
+
+        if issues:
+            raise ValueError(" | ".join(issues))
+        return self
