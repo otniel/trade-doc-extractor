@@ -43,11 +43,18 @@ PDF ──> text (PyMuPDF) ──> LLM extract ──> validate ──┬─ ok 
 ```bash
 uv sync                 # or: pip install -r requirements-dev.txt
 cp .env.example .env     # add your ANTHROPIC_API_KEY
-make test                # 21 offline tests, no API calls
+make test                # 25 offline tests, no API calls
 
-make run FILE=documents/trade_confirmation_001.pdf   # extract one doc
-make eval                                            # accuracy vs golden set
+make demo                                            # 2 min, no API key needed --
+                                                      # scripted repair-loop walkthrough
+make run FILE=documents/trade_confirmation_001.pdf   # extract one doc (live API)
+make eval                                            # accuracy vs golden set (live API)
 ```
+
+`make demo` is the fastest way to see the point of this project: it runs the
+real validate/repair loop end to end with a scripted LLM response that
+reproduces the exact silent unit-conflation bug, then repairs it. No API key,
+no network, ~5 seconds.
 
 Docker:
 
@@ -75,26 +82,51 @@ an invalid-unit decoy, and a currency decoy.
 
 Identical. The repair loop did not fire once, even on the documents engineered
 to trip it — so there is no accuracy delta to claim, and this README won't
-claim one. The two field misses that do exist are free-text exact-match scorer
-artifacts (e.g. `"Rotterdam (ARA)"` vs `"Rotterdam"`), not extraction errors,
-and neither trips a business rule.
+claim one. The two field misses in this run were both the same failure mode:
+a free-text exact-match scorer rejecting a trailing parenthetical annotation
+(`"Rotterdam (ARA)"` vs `"Rotterdam"`, `"X (Financial Swap)"` vs `"X"`) —
+not extraction errors, and neither trips a business rule. The scorer has
+since been fixed to allow that one narrow case (see `eval/run_eval.py::_eq`);
+the table above predates that fix and hasn't been re-measured, so it's kept
+as originally recorded rather than replaced with an unverified number.
 
 The honest claim this project makes instead: the validation layer is a
 correctness guarantee, not a measured accuracy bump. `test_schema.py`,
 `test_extract.py`, and `test_graph.py` prove deterministically — via a scripted
 fake LLM, no live-model luck involved — that a unit/currency/notional
-mismatch is caught and repaired every time it occurs. For a financial
-document, a silently wrong unit is real money; this pipeline makes that
-failure structurally impossible to ship silently, independent of whether any
-particular model, on any particular run, happens to produce one.
+mismatch is caught and repaired every time it occurs (`make demo` shows this
+directly). For a financial document, a silently wrong unit is real money;
+this pipeline makes that failure structurally impossible to ship silently,
+independent of whether any particular model, on any particular run, happens
+to produce one.
+
+## Known limitations
+
+- **Repair loop is unexercised in live measurement.** 0/61 fields needed a
+  repair across the current corpus/model combination. Its correctness is
+  proven by deterministic scripted-LLM tests, not by a live-model accuracy
+  delta — see Results above.
+- **Golden corpus is small (n=4).** Enough to prove the pipeline works
+  end-to-end and to build adversarial cases against, not enough to make a
+  strong statistical accuracy claim.
+- **Free-text fields are near-exact-match.** `commodity` and
+  `delivery_location` allow only a trailing `(...)` annotation to differ;
+  any other paraphrase is scored wrong even if semantically equivalent.
+- **`buyer`/`seller`/`side` are optional by design**, populated only when a
+  document unambiguously states them (see NOTES.md D4) — a doc that names one
+  counterparty and no explicit side will correctly return `null`, not a guess.
+- **Single document type.** See Scope and Roadmap below.
 
 ## Corpus
 
-`documents/` holds a trade confirmation (the current extraction target) plus
-invoices, purchase orders, statements, contracts, and off-domain SEC filings.
-In this slice only the trade confirmation is scored; the rest seed the roadmap
-(future document types) and serve as "should not produce a valid
-TradeConfirmation" robustness cases.
+`documents/` holds 4 trade confirmations (the current extraction target,
+scored against `eval/golden/`) plus invoices, purchase orders, statements,
+contracts, and off-domain SEC filings. `trade_confirmation_001.pdf` is a clean
+real-world-style sample; `002/003/004` are synthetic docs generated via
+`scripts/generate_corpus_docs.py`, each engineered to invite a specific silent
+extraction error (see Results). The non-trade-confirmation documents aren't
+scored in this slice; they seed the roadmap (future document types) and serve
+as "should not produce a valid TradeConfirmation" robustness cases.
 
 ## Roadmap (post-ship)
 
@@ -107,3 +139,7 @@ TradeConfirmation" robustness cases.
 ## Stack
 
 Python · PyMuPDF · Pydantic · LangGraph · Anthropic API · pytest · Docker
+
+## License
+
+MIT — see [LICENSE](LICENSE).
