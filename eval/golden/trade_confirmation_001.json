@@ -1,0 +1,13 @@
+{
+  "_comment": "Ground truth for documents/trade_confirmation_001.pdf. Only fields the doc UNAMBIGUOUSLY provides are scored. buyer/seller/side and delivery_period are intentionally omitted: the doc names one counterparty + two individual signatories and no explicit side, so they cannot be reliably ground-truthed. That gap is a finding (see NOTES), not an oversight.",
+  "confirmation_id": "TC-2026-0471B",
+  "trade_type": "PHYSICAL",
+  "commodity": "Brent Crude Oil (Dated Brent)",
+  "trade_date": "2026-07-23",
+  "settlement_date": "2026-08-06",
+  "quantity": {"value": "1000", "unit": "BBL"},
+  "price": {"value": "85.42", "currency": "USD", "per_unit": "BBL"},
+  "notional": "85420.00",
+  "notional_currency": "USD",
+  "delivery_location": "Rotterdam"
+}
