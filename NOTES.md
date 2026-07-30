@@ -1,123 +1,110 @@
 # NOTES.md — trade-doc-extractor
 
-Working log + decisions for the document-extraction + RAG pipeline over
-financial/trade documents. Timebox: 2 weeks. Ship: **Fri Aug 7, 2026**.
+Working log + decisions. Compressed to a thin vertical slice.
+**Ship: Fri Jul 31, 2026.**
 
 The eval harness is the centerpiece — field-level accuracy vs a hand-labeled
-golden set. Everything else exists to move that number.
+golden set. Everything else exists to move that number honestly.
 
 ---
 
-## Pitch target (the number the project is built to earn)
+## Scope decision (compression)
 
-> "71% → 94% field-level accuracy, cost/doc $0.12 → $0.07."
+Narrowed from the original 10-day multi-doc + RAG build (ship Aug 7) to a single
+document type shipped end to end by Jul 31: **TradeConfirmation only**, with the
+validate/repair loop and the eval harness. RAG/Postgres/pgvector, multi-doc
+types, and observability moved to the post-ship roadmap. Reason: the job funnel
+needs a *shipped, working* artifact now; a half-built broad system ships nothing.
 
-These are targets, not results yet. **The 71% baseline must be recorded on Day 4**
-against the golden set — before the validation loop is allowed to flatter the
-numbers. No baseline = no story.
+---
+
+## Pitch target (a number to earn, not to claim)
+
+> Goal: raise field-level accuracy and cut per-doc cost via the validate/repair
+> loop — e.g. a jump from a no-repair baseline to a repaired score.
+
+**Record the baseline on D4 with `--max-repairs 0` BEFORE the loop can flatter
+the number.** No measured baseline = no story. Nothing goes in the README until
+the harness produces it.
 
 ---
 
 ## Stack / decisions
 
-- Python
-- PyMuPDF for text extraction (pdfplumber added later for tables)
-- LangGraph for the validation/repair loop (D3)
-- Structured outputs + Pydantic validation with a repair loop
-- Postgres + pgvector for retrieval (D5)
-- Docker
-- LLM: Anthropic SDK, `claude-sonnet-4-6`
-
-Key config resolved D2: SDK reads `ANTHROPIC_API_KEY` from env via `.env` +
-`python-dotenv` (not shell export — survives across sessions). `.env` is
-gitignored; verify with `git status` before every commit.
+- Python · PyMuPDF (text) · Pydantic v2 (schema + rules) · LangGraph (repair
+  loop) · Anthropic SDK · pytest · Docker
+- LLM: `claude-sonnet-4-6`
+- Config (resolved D2): SDK reads `ANTHROPIC_API_KEY` from `.env` via
+  python-dotenv, not shell export — survives across sessions. `.env` is
+  gitignored; check `git status` before every commit.
+- Packaging: `src/` is a source root (`pythonpath=["src"]`), not a package —
+  keeps flat imports working, no `src.` prefix. pyproject is the dependency
+  source of truth; `uv` locks/runs; requirements.txt is the pip fallback.
 
 ---
 
-## Corpus (12 docs, in repo)
-
-- **5 clean, self-made** (ground-truth easy cases): trade confirmation, invoice,
-  purchase order, statement, contract.
-- **Messy real templates** (the hard cases the accuracy story rests on): UNICEF PO,
-  UW invoice, Harvest invoice.
-- **Off-domain SEC filings** (Chevron/Exxon 8-K, JPMorgan 10-K) — used as
-  "correctly reject / low-confidence" cases, not extraction targets.
-
----
-
-## 10-day plan
+## Plan (compressed)
 
 | Day | Scope | Status |
 |-----|-------|--------|
-| D1  | Scope, repo scaffold, Docker builds, schema, corpus in place | ✅ done (Mon Jul 27) |
-| D2  | Ingestion/parsing: PyMuPDF → text → LLM w/ schema → one happy path | ✅ done (Tue Jul 28) |
-| D3  | Validation loop (LangGraph) + Pydantic validate/repair | ⏭ next |
-| D4  | Eval harness + **record baseline** | — |
-| D5  | Postgres + pgvector | — |
-| D6  | Retrieval + citations | — |
-| D7  | Observability + retrieval eval | — |
-| D8  | Harden | — |
-| D9  | Demo + writeup | — |
-| D10 | Ship + LinkedIn launch | — |
+| D1 | Scaffold, schema, Docker, corpus | done (Mon Jul 27) |
+| D2 | PyMuPDF → text → LLM → structured JSON (happy path) | done (Tue Jul 28) |
+| D3 | Validation + repair loop (LangGraph) + tests | done (Wed Jul 29) |
+| D4 | Eval harness + **record baseline** | next |
+| D5 | Ship: README/demo, final numbers, LinkedIn launch | Fri Jul 31 |
 
 ---
 
 ## Running log
 
-### D1 — Mon Jul 27
-- Repo scaffolded, Docker builds, schema defined, corpus placed. Morning slipped
-  but day closed complete.
-
 ### D2 — Tue Jul 28
-- Happy path working: `extract_text()` (PyMuPDF) → `extract_fields()`
-  (LLM + `model_json_schema()`) → `json.loads` → dict, on
-  `trade_confirmation_001.pdf`.
-- Clean doc returned **valid JSON, no markdown fences, parsed first try.** Record
-  this as the "easy case works" baseline behavior — it will NOT hold on the messy
-  UNICEF/UW/Harvest docs, and that gap is the whole point of the project.
-- **Finding — field error on a CLEAN doc:** model returned
-  `"quantity": 1000, "unit": "USD per barrel", "unit_price": 85.42`. The
-  `unit` value is a *price* unit, not a *quantity* unit — quantity should be in
-  barrels; USD/barrel describes the price. `total_value` math still checked out
-  (1000 × 85.42 = 85,420), so the error is silent. This is concrete evidence for
-  the pitch: *even clean docs produce field errors the naive pipeline doesn't
-  notice.* → to be caught by D3 validation + measured by D4 eval. **Not fixed in
-  D2 by design.**
-- requirements.txt verified against PyPI directly (`pip index versions`), not
-  guessed. All pins resolve on a clean index. Lesson logged below.
+- **Finding (the whole pitch):** on the *clean* sample doc
+  (`trade_confirmation_001.pdf`, TC-2026-0471B) the model reads
+  `Unit: USD per barrel` — a **price** unit — into the **quantity** unit field.
+  Math still checks (1000 × 85.42 = 85,420), so the error is silent. Caught by
+  D3 validation, measured by D4 eval.
+
+### D3 — Wed Jul 29
+- Typed Pydantic schema; `price.per_unit` and `quantity.unit` separated so the
+  unit conflation is *checkable*. Business rules in one accumulating
+  model_validator (unit/currency coherence, notional≈price×qty, date ordering,
+  physical-delivery). Repair loop (LLM injected as a callable, capped retries,
+  returns a traced miss instead of raising). Wired as a LangGraph graph, one
+  conditional edge on the validation result. 21 offline tests green.
 
 ---
 
-## Open items / parked gaps
+## Open items / findings
 
-- **D3:** semantic validation must catch the unit/quantity conflation above, not
-  just schema-shape validation. A value can be schema-valid and still wrong.
-- **D4:** record the 71% baseline against the golden set BEFORE the repair loop
-  runs, or the improvement number is meaningless.
-- **LeetCode redo slot (Thu):** redo Num Islands in-place (sink by mutating grid
-  to `"0"`) from memory. First pass used a visited-set of tuples: 304ms/5%.
-  In-place: 234ms/82%. Interview point: in-place marking removes the aux
-  structure. Bug that cost a TLE: `grid[r][c] == "0"` (compare) vs
-  `grid[r][c] = "0"` (assign).
+- **Schema vs. real doc gap (found D4 prep).** The sample doc names one
+  *counterparty* (Shell Energy Trading SARL) + two individual signatories, and
+  no explicit BUY/SELL side. But the schema requires `buyer`, `seller`, and
+  `side`. These three fields can't be reliably ground-truthed from the doc, so
+  the eval golden omits them from scoring. **Decision needed before D4 is
+  trustworthy:** either replace buyer/seller with a single `counterparty` and
+  make `side` optional (fits the doc), or add docs where buyer/seller/side are
+  explicit. Leaning toward the schema change.
+- **Golden set is n=1.** One scored doc is a weak accuracy signal. Add 2–3 more
+  trade-confirmation docs (one clean, one messy) before publishing a number.
+- **String fields are exact-match** in the scorer (commodity, delivery_location).
+  Free-text near-misses count as wrong; fine for v1, note it.
 
 ---
 
 ## Lessons (engineering-judgment log — keep for the writeup)
 
 - **Registry beats secondhand claims.** `pip index versions <pkg>` queries PyPI
-  directly and is the source of truth for what a clean machine (Docker, fresh
-  clone) can install. It overrules web searches, docs, and memory. When a
-  registry query disagrees with any secondhand source, the registry wins.
-- **`--dry-run` + "requirement already satisfied" proves nothing** about whether a
-  clean environment can fetch a package — it just found the local copy. Use
-  `pip index versions` or `pip install --ignore-installed --no-cache-dir` to force
-  a real index check.
-- **`requirements.txt` = direct deps only** (the handful you import), not the full
-  `pip freeze` tree. Let pip resolve the transitive deps.
+  directly — the source of truth for what a clean machine can install. Overrules
+  web searches, docs, and memory.
+- **`--dry-run` / "already satisfied" proves nothing** about a clean fetch — it
+  found the local copy. Force a real index check.
+- **`requirements.txt` = direct deps only**; let the resolver handle transitives.
+- **Measure before you improve.** Record the no-repair baseline before turning on
+  the repair loop, or the improvement is unfalsifiable.
 
 ---
 
-## D10 launch post (parked — post WITH the repo, not before)
+## Launch post (parked — post WITH the repo, not before)
 
 Angle: "AI Engineer" in most listings = reliable backend systems around LLMs, not
-ML research. Let the build be the argument; keep any critique implicit.
+ML research. Let the build be the argument.

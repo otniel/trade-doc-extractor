@@ -1,4 +1,7 @@
-pydantic==2.5.0
-python-dotenv==1.0.0
-PyMuPDF==1.28.0
-anthropic==0.120.2
+# Runtime deps — pip fallback for reviewers without uv.
+# Source of truth is pyproject.toml. Regenerate authoritative pins with: make lock
+pydantic==2.13.4        # verified
+langgraph==1.2.10       # verified
+anthropic==0.120.2      # verified via `pip index versions anthropic`
+pymupdf==1.28.0         # verified via `pip index versions` (imported as `fitz`)
+python-dotenv==1.0.0    # ANTHROPIC_API_KEY loaded from .env (survives across sessions)

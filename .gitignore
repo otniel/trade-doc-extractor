@@ -1,4 +1,3 @@
-__pycache__/
 *.pyc
 .DS_Store
 .env
@@ -11,4 +10,4 @@ __pycache__
 *.egg-info
 dist/
 build/
-.env
+.ruff_cache/
