@@ -1,4 +1,4 @@
-.PHONY: install dev test lint run eval lock
+.PHONY: install dev test lint run eval demo lock
 
 install:            ## runtime deps only
 	uv sync --no-dev
@@ -17,6 +17,9 @@ run:                ## make run FILE=documents/trade_confirmation_001.pdf
 
 eval:
 	uv run python -m eval.run_eval
+
+demo:               ## no API key needed -- scripted 2-minute repair-loop demo
+	uv run python -m scripts.demo
 
 lock:               ## refresh lockfile + export pinned requirements for pip users
 	uv lock
