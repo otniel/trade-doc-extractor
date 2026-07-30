@@ -1,0 +1,18 @@
+{
+  "_comment": "Ground truth for documents/trade_confirmation_004.pdf. Deliberate trap: 'Total Value: $192,500.00 (approx. EUR 178,325 at reference FX 0.9264)' puts a decoy EUR figure directly beside the USD notional, testing whether the model keeps notional_currency=USD instead of latching onto the parenthetical EUR amount or figure. 'Unit:' line also sits between the bare Quantity number and Price, same positional trap as doc 003/the original Day-2 bug. delivery_location and delivery_period are scored here (unlike doc 001/003) because 'Delivery Terms' and 'Delivery Point' both give the identical string, and 'Flow Period: August 15-31, 2026' unambiguously gives the delivery window.",
+  "confirmation_id": "TC-2026-0512",
+  "trade_type": "PHYSICAL",
+  "side": "BUY",
+  "commodity": "Henry Hub Natural Gas Forward",
+  "trade_date": "2026-07-15",
+  "settlement_date": "2026-08-15",
+  "buyer": {"name": "Gulf Coast Energy Partners LLC"},
+  "seller": {"name": "Meridian Gas Marketing LLC"},
+  "quantity": {"value": "50000", "unit": "MMBTU"},
+  "price": {"value": "3.85", "currency": "USD", "per_unit": "MMBTU"},
+  "notional": "192500.00",
+  "notional_currency": "USD",
+  "delivery_location": "Henry Hub, Erath, Louisiana",
+  "delivery_period_start": "2026-08-15",
+  "delivery_period_end": "2026-08-31"
+}

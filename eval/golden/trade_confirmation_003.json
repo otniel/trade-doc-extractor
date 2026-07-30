@@ -1,0 +1,15 @@
+{
+  "_comment": "Ground truth for documents/trade_confirmation_003.pdf. Deliberate trap: mirrors the Day-2 bug's exact layout -- 'Quantity: 500 (1,102,311 lbs gross)' gives a bare number plus a decoy weight conversion, then the very next line, 'Unit: USD per metric ton', is the PRICE's unit but reads positionally like it modifies the quantity above it. delivery_location intentionally omitted: the doc gives 'CIF Antwerp' (Delivery Terms) and 'Port of Antwerp' (Discharge Port) -- same city, different strings, so which the model should emit isn't unambiguous. Scoring it would just reproduce the known Rotterdam/Rotterdam(ARA) scorer artifact from doc 001.",
+  "confirmation_id": "TC-2026-0533",
+  "trade_type": "PHYSICAL",
+  "side": "BUY",
+  "commodity": "Copper Cathode Grade A (LME Registered)",
+  "trade_date": "2026-07-10",
+  "settlement_date": "2026-07-24",
+  "buyer": {"name": "Continental Copper Refiners Ltd."},
+  "seller": {"name": "Andes Metals Trading S.A."},
+  "quantity": {"value": "500", "unit": "MT"},
+  "price": {"value": "9450.00", "currency": "USD", "per_unit": "MT"},
+  "notional": "4725000.00",
+  "notional_currency": "USD"
+}

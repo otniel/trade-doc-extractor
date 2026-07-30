@@ -1,0 +1,15 @@
+{
+  "_comment": "Ground truth for documents/trade_confirmation_002.pdf. Deliberate trap: 'Notional Volume: 20,000 (20,000,000 kWh equivalent)' sits right next to the quantity number, but kWh is not a valid QuantityUnit -- the real unit (MWh) is stated two lines below as 'Unit of Measure'. Financial swap: no physical delivery, so delivery_location is correctly absent, not omitted for ambiguity.",
+  "confirmation_id": "TC-2026-0498",
+  "trade_type": "FINANCIAL",
+  "side": "BUY",
+  "commodity": "PJM Western Hub Power (Financial Swap)",
+  "trade_date": "2026-07-18",
+  "settlement_date": "2026-08-18",
+  "buyer": {"name": "Meridian Grid Solutions Inc."},
+  "seller": {"name": "NextEra Power Marketing LLC"},
+  "quantity": {"value": "20000", "unit": "MWH"},
+  "price": {"value": "42.75", "currency": "USD", "per_unit": "MWH"},
+  "notional": "855000.00",
+  "notional_currency": "USD"
+}
