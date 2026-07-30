@@ -120,14 +120,25 @@ the harness produces it.
 
 ## Open items / findings
 
-- **Schema vs. real doc gap (found D4 prep).** The sample doc names one
+- **Schema vs. real doc gap — RESOLVED.** The sample doc names one
   *counterparty* (Shell Energy Trading SARL) + two individual signatories, and
-  no explicit BUY/SELL side. But the schema requires `buyer`, `seller`, and
-  `side`. These three fields can't be reliably ground-truthed from the doc, so
-  the eval golden omits them from scoring. **Decision needed before D4 is
-  trustworthy:** either replace buyer/seller with a single `counterparty` and
-  make `side` optional (fits the doc), or add docs where buyer/seller/side are
-  explicit. Leaning toward the schema change.
+  no explicit BUY/SELL side; the schema required `buyer`, `seller`, `side`, so
+  the model was forced to guess -- e.g. reading signatory "Robert Zhang" (a
+  person) into `buyer`. **Decision (revised from the original lean):** did
+  *not* collapse buyer/seller to a single `counterparty` field. That plan
+  predated the D4 corpus expansion; now that 3 of 4 docs (002/003/004) state a
+  real, distinct buyer *and* seller *and* side, collapsing to one field would
+  have discarded real information the corpus mostly does have, just to fit the
+  one doc that doesn't. Instead: `buyer`, `seller`, `side` are now
+  `Optional[...] = None` in `src/schema.py`. Docs that state them get them
+  populated and scored (002/003/004); doc 001 correctly gets `None` instead of
+  a fabricated guess. Also updated the extraction prompt (`_SCHEMA_HINT` in
+  `src/extract.py`) to mark these `?`-optional and explicitly instruct the
+  model not to infer a buyer/seller/side from signatory names when the
+  document doesn't clearly state them -- the schema alone doesn't stop
+  fabrication if the prompt still implies the fields are mandatory. Two new
+  tests (`test_buyer_seller_side_optional`,
+  `test_buyer_seller_side_populated_when_present`) cover both paths.
 - **Golden set is n=1.** ~~One scored doc is a weak accuracy signal.~~ **Resolved
   D4:** now n=4 (`trade_confirmation_001` clean + `002/003/004` adversarial).
   New docs 002/003/004 all state buyer/seller/side explicitly, so those fields

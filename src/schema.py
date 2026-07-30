@@ -85,14 +85,24 @@ class TradeConfirmation(BaseModel):
 
     confirmation_id: str = Field(..., min_length=1)
     trade_type: TradeType
-    side: Side
+    # Optional (D4 finding): some real confirmations name a single counterparty
+    # plus individual signatories and never state BUY/SELL explicitly. Making
+    # this required forced the model to guess -- e.g. reading a signatory's
+    # personal name as `buyer` and inventing a `side` -- which is exactly the
+    # class of silent, plausible-but-wrong value this project exists to catch.
+    # Better to leave it genuinely absent than to force a fabricated guess.
+    side: Optional[Side] = None
     commodity: str = Field(..., min_length=1)  # e.g. "WTI Crude Oil"
 
     trade_date: date
     settlement_date: date
 
-    buyer: Party
-    seller: Party
+    # Optional for the same reason as `side` (see above). When a doc states
+    # both parties clearly, populate both; when it only names one counterparty
+    # (or none unambiguously), leave the unresolvable one(s) as None instead of
+    # guessing.
+    buyer: Optional[Party] = None
+    seller: Optional[Party] = None
 
     quantity: Quantity
     price: Price

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.schema import TradeConfirmation
+from src.schema import Side, TradeConfirmation
 
 
 def over(data, **changes):
@@ -11,6 +11,19 @@ def over(data, **changes):
 def test_valid_doc_parses(valid_data):
     doc = TradeConfirmation(**valid_data)
     assert doc.quantity.unit == doc.price.per_unit
+
+
+# --- buyer/seller/side are optional (D4: forcing them caused fabrication on
+# docs that only name one counterparty and never state a side) ---
+def test_buyer_seller_side_optional(valid_data):
+    data = {k: v for k, v in valid_data.items() if k not in ("buyer", "seller", "side")}
+    doc = TradeConfirmation(**data)
+    assert doc.buyer is None and doc.seller is None and doc.side is None
+
+
+def test_buyer_seller_side_populated_when_present(valid_data):
+    doc = TradeConfirmation(**valid_data)
+    assert doc.buyer.name == "Acme Energy LLC" and doc.side == Side.BUY
 
 
 # --- type-layer constraints ---

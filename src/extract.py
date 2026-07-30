@@ -66,13 +66,16 @@ class ExtractionResult:
 
 
 _SCHEMA_HINT = """Return ONLY a JSON object with these fields:
-  confirmation_id (str), trade_type ("PHYSICAL"|"FINANCIAL"), side ("BUY"|"SELL"),
+  confirmation_id (str), trade_type ("PHYSICAL"|"FINANCIAL"), side? ("BUY"|"SELL"),
   commodity (str), trade_date & settlement_date (YYYY-MM-DD),
-  buyer & seller ({name, lei?}),
+  buyer? & seller? ({name, lei?}),
   quantity ({value, unit}), price ({value, currency, per_unit}),
   notional (number), notional_currency (3-letter ISO code),
   delivery_location?, delivery_period_start? & delivery_period_end? (YYYY-MM-DD).
 Units must be one of: BBL, MT, GAL, MMBTU, THM, MWH, M3.
+Fields marked ? are optional: omit or set null if the document does not
+unambiguously state them -- do NOT guess or infer a buyer/seller/side from
+signatory names or context if the document does not clearly name them.
 Rules: price.per_unit must equal quantity.unit; notional must equal
 price.value * quantity.value; PHYSICAL trades need a delivery_location.
 No prose, no code fences."""
