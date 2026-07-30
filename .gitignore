@@ -4,6 +4,7 @@
 .venv/
 venv/
 *.pdf
+!documents/trade_confirmation_*.pdf
 notebooks/
 __pycache__
 .pytest_cache
@@ -11,3 +12,9 @@ __pycache__
 dist/
 build/
 .ruff_cache/
+.idea/
+
+# personal job-search files that happen to live in documents/ -- not part of
+# the trade-doc-extractor corpus, must never land in this public repo
+documents/cv_*.docx
+documents/job-hunter-main.zip
