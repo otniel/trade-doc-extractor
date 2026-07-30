@@ -52,7 +52,7 @@ the harness produces it.
 | D1 | Scaffold, schema, Docker, corpus | done (Mon Jul 27) |
 | D2 | PyMuPDF → text → LLM → structured JSON (happy path) | done (Tue Jul 28) |
 | D3 | Validation + repair loop (LangGraph) + tests | done (Wed Jul 29) |
-| D4 | Eval harness + **record baseline** | next |
+| D4 | Eval harness + **record baseline** | done (Wed Jul 29) |
 | D5 | Ship: README/demo, final numbers, LinkedIn launch | Fri Jul 31 |
 
 ---
@@ -74,6 +74,48 @@ the harness produces it.
   returns a traced miss instead of raising). Wired as a LangGraph graph, one
   conditional edge on the validation result. 21 offline tests green.
 
+### D4 — Wed Jul 29 (eval harness + measured baseline)
+- Expanded the golden corpus from n=1 to n=4: kept `trade_confirmation_001`
+  (clean) and added 3 *adversarially designed* docs
+  (`trade_confirmation_002/003/004.pdf`, generated via
+  `scripts/generate_corpus_docs.py`), each engineered to reproduce a specific
+  silent-error class -- an invalid-unit decoy (`kWh`) sitting next to the
+  quantity (002), the exact D2 unit-conflation layout: bare quantity number +
+  weight decoy, then a `Unit:` line that's actually the price's unit (003), and
+  a decoy EUR figure sitting beside the USD notional (004).
+- **Measured, live, `claude-sonnet-4-6`:**
+
+  ```
+  --max-repairs 0            --max-repairs 2
+  59/61 fields = 96.7%       59/61 fields = 96.7%
+  resolved 4/4, 0 repairs    resolved 4/4, 0 repairs
+  ```
+
+  Identical. **The repair loop fired zero times, on any of the 4 docs,
+  including the 3 built specifically to trip it.**
+- **Finding (supersedes the D2/D3 open question):** this is now the *second*
+  time this happened -- D3's clean doc, and now D4's adversarial corpus. On
+  `claude-sonnet-4-6`, the D2 unit-conflation bug does not reproduce reliably
+  even when the layout is deliberately engineered to invite it. The two misses
+  that do exist are both free-text exact-match scorer artifacts, not
+  extraction errors, and neither violates a business rule so neither is
+  repair-loop-catchable in principle: `trade_confirmation_001.delivery_location`
+  (`"Rotterdam (ARA)"` vs `"Rotterdam"`) and
+  `trade_confirmation_002.commodity` (model dropped the `"(Financial Swap)"`
+  parenthetical).
+- **Decision (per the D2 contingency plan): reframe the pitch.** Not "accuracy
+  jump via repair" -- that's false on this evidence, full stop. Instead: *a
+  validated reliability net*. The business-rule validator is a hard
+  architectural guarantee -- proven deterministically by the scripted-LLM
+  tests (`test_schema.py`, `test_extract.py`, `test_graph.py`), independent of
+  whether any given model trips it on any given run. The honest claim: for a
+  financial document, a silently wrong unit is real money; this pipeline makes
+  that failure structurally impossible to ship silently, regardless of
+  whether *this* corpus, on *this* model, happened to produce one today.
+- No repair-delta number goes in the README. There isn't one. The README gets
+  the 96.7%/4-doc number plus this finding, stated as a finding, not
+  papered over.
+
 ---
 
 ## Open items / findings
@@ -86,10 +128,17 @@ the harness produces it.
   trustworthy:** either replace buyer/seller with a single `counterparty` and
   make `side` optional (fits the doc), or add docs where buyer/seller/side are
   explicit. Leaning toward the schema change.
-- **Golden set is n=1.** One scored doc is a weak accuracy signal. Add 2–3 more
-  trade-confirmation docs (one clean, one messy) before publishing a number.
+- **Golden set is n=1.** ~~One scored doc is a weak accuracy signal.~~ **Resolved
+  D4:** now n=4 (`trade_confirmation_001` clean + `002/003/004` adversarial).
+  New docs 002/003/004 all state buyer/seller/side explicitly, so those fields
+  *are* scored there -- the ambiguity gap above is specific to doc 001, not
+  structural to the corpus.
 - **String fields are exact-match** in the scorer (commodity, delivery_location).
-  Free-text near-misses count as wrong; fine for v1, note it.
+  Confirmed twice now: doc 001's `delivery_location` (`"Rotterdam (ARA)"` vs
+  `"Rotterdam"`) and doc 002's `commodity` (dropped the `"(Financial Swap)"`
+  parenthetical). Both free-text near-misses, not extraction errors. Fine for
+  v1 with 2 known instances noted; fix (fuzzy/canonicalized string scoring) is
+  the last item before D5 if time allows.
 
 ---
 

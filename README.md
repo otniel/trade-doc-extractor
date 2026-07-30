@@ -64,10 +64,29 @@ support and retrieval are on the roadmap, not in this cut — see below.
 
 ## Results
 
-Field-level accuracy is measured by the eval harness against the golden set.
-Baseline is recorded with the repair loop **disabled** (`--max-repairs 0`), then
-re-measured with it on, so the improvement is real and not self-graded. Numbers
-are published here once measured — none before.
+Measured live against a 4-doc golden set (`claude-sonnet-4-6`): 1 clean sample
+doc plus 3 documents built specifically to invite the unit-conflation bug,
+an invalid-unit decoy, and a currency decoy.
+
+| `--max-repairs` | field-level accuracy | resolved | repairs fired |
+|---|---|---|---|
+| 0 | 59/61 = 96.7% | 4/4 | 0 |
+| 2 | 59/61 = 96.7% | 4/4 | 0 |
+
+Identical. The repair loop did not fire once, even on the documents engineered
+to trip it — so there is no accuracy delta to claim, and this README won't
+claim one. The two field misses that do exist are free-text exact-match scorer
+artifacts (e.g. `"Rotterdam (ARA)"` vs `"Rotterdam"`), not extraction errors,
+and neither trips a business rule.
+
+The honest claim this project makes instead: the validation layer is a
+correctness guarantee, not a measured accuracy bump. `test_schema.py`,
+`test_extract.py`, and `test_graph.py` prove deterministically — via a scripted
+fake LLM, no live-model luck involved — that a unit/currency/notional
+mismatch is caught and repaired every time it occurs. For a financial
+document, a silently wrong unit is real money; this pipeline makes that
+failure structurally impossible to ship silently, independent of whether any
+particular model, on any particular run, happens to produce one.
 
 ## Corpus
 
