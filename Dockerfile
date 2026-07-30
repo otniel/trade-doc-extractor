@@ -9,10 +9,8 @@ COPY src/ ./src/
 COPY documents/ ./documents/
 COPY eval/ ./eval/
 
-ENV PYTHONPATH=/app/src
-
 # Extract the sample doc. Pass your key at run time:
 #   docker build -t trade-doc-extractor .
 #   docker run --rm -e ANTHROPIC_API_KEY=sk-ant-... trade-doc-extractor
-ENTRYPOINT ["python", "-m", "cli"]
+ENTRYPOINT ["python", "-m", "src.cli"]
 CMD ["documents/trade_confirmation_001.pdf"]

@@ -10,13 +10,13 @@ test:
 	uv run pytest
 
 lint:
-	uv run ruff check src tests
+	uv run ruff check src tests eval
 
-run:                ## make run FILE=corpus/trade_confirmation_001.pdf
-	PYTHONPATH=src uv run python -m cli $(FILE)
+run:                ## make run FILE=documents/trade_confirmation_001.pdf
+	uv run python -m src.cli $(FILE)
 
 eval:
-	PYTHONPATH=src uv run python eval/run_eval.py
+	uv run python -m eval.run_eval
 
 lock:               ## refresh lockfile + export pinned requirements for pip users
 	uv lock

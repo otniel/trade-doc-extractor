@@ -37,9 +37,11 @@ the harness produces it.
 - Config (resolved D2): SDK reads `ANTHROPIC_API_KEY` from `.env` via
   python-dotenv, not shell export — survives across sessions. `.env` is
   gitignored; check `git status` before every commit.
-- Packaging: `src/` is a source root (`pythonpath=["src"]`), not a package —
-  keeps flat imports working, no `src.` prefix. pyproject is the dependency
-  source of truth; `uv` locks/runs; requirements.txt is the pip fallback.
+- Packaging: `src/` is a package (`src/__init__.py`); run with
+  `python -m src.cli <pdf>` from the repo root — intra-package imports are
+  relative, tests import `from src....`, pytest uses `pythonpath=["."]`.
+  pyproject is the dependency source of truth; `uv` locks/runs; requirements.txt
+  is the pip fallback.
 
 ---
 

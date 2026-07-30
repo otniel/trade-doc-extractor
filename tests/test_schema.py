@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from schema import TradeConfirmation
+from src.schema import TradeConfirmation
 
 
 def over(data, **changes):

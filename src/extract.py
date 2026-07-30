@@ -20,7 +20,7 @@ from typing import Callable, Optional
 
 from pydantic import ValidationError
 
-from schema import TradeConfirmation
+from .schema import TradeConfirmation
 
 LLM = Callable[[str], str]
 

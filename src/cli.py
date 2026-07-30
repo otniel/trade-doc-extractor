@@ -11,9 +11,9 @@ import sys
 
 from dotenv import load_dotenv
 
-from pdf import extract_text
-from llm import anthropic_llm
-from graph import build_graph, run
+from .pdf import extract_text
+from .llm import anthropic_llm
+from .graph import build_graph, run
 
 
 def main(argv=None) -> int:

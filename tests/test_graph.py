@@ -1,4 +1,4 @@
-from graph import build_graph, run
+from src.graph import build_graph, run
 
 
 def test_graph_repairs_d2(scripted_llm, bad_unit_json, good_json):

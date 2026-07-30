@@ -10,7 +10,7 @@ import os
 
 from anthropic import Anthropic
 
-from extract import LLM
+from .extract import LLM
 
 
 def anthropic_llm(

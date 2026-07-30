@@ -1,4 +1,4 @@
-from extract import extract
+from src.extract import extract
 
 
 def test_repairs_unit_bug(scripted_llm, bad_unit_json, good_json):

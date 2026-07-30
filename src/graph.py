@@ -25,8 +25,8 @@ from typing import Optional, TypedDict
 from pydantic import ValidationError
 from langgraph.graph import StateGraph, START, END
 
-from schema import TradeConfirmation
-from extract import (
+from .schema import TradeConfirmation
+from .extract import (
     LLM,
     Attempt,
     ExtractionResult,

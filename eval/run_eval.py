@@ -19,7 +19,7 @@ import json
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from graph import build_graph, run
+from src.graph import build_graph, run
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN_DIR = ROOT / "eval" / "golden"
@@ -63,8 +63,8 @@ def score(pred: dict, gold: dict) -> tuple[int, int, list[str]]:
 
 def main(argv=None) -> int:
     from dotenv import load_dotenv
-    from pdf import extract_text
-    from llm import anthropic_llm
+    from src.pdf import extract_text
+    from src.llm import anthropic_llm
 
     ap = argparse.ArgumentParser(description="Field-level accuracy vs the golden set.")
     ap.add_argument("--max-repairs", type=int, default=2)

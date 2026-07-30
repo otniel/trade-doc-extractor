@@ -15,7 +15,7 @@ dependencies = [
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]     # src is a source root, not a package -> flat imports work
+pythonpath = ["."]       # repo root on path; src is a package (python -m src.cli)
 testpaths = ["tests"]
 
 [tool.ruff]
